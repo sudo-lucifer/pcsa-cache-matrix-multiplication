@@ -1,6 +1,7 @@
 #define _OPEN_SYS_ITOA_EXT
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 #include<time.h>
 #include "mm.h"
 
@@ -10,6 +11,8 @@
 // 	- Krittin Nisunarat 6280782
 
 // Task 1: Flush the cache so that we can do our measurement :)
+#define MAXBUFFER 512
+
 void flush_all_caches()
 {
 	// Your code goes here
@@ -75,23 +78,21 @@ void multiply_base()
 
 void compare_results()
 {
-	// fout = fopen("./out.in","r");
-	printf("============ Start Testing ============\n");
+	printf("============ Start Checking Answer ============\n");
 	FILE * fref = fopen("./reference.in", "r");
+	fout = fopen("./out.in","r");
 	long i;
 	long temp1, temp2;
 	for(i=0;i<((long)SIZEX*(long)SIZEY);i++)
 	{
-		// fscanf(fout, "%ld", &temp1);
 		fscanf(fref, "%ld", &temp2);
-		temp1 = huge_matrixC[i];
+		fscanf(fout, "%ld", &temp1);
 		if(temp1!=temp2)
 		{
 			printf("Wrong solution!");
 			exit(1);
 		}
 	}
-	// fclose(fout);
 	fclose(fref);
 	printf("Correct Result!!\n");
 }
@@ -102,12 +103,31 @@ void write_results()
 	//
 	// Basically, make sure the result is written on fout
 	// Each line represent value in the X-dimension of your matrix
-	// fout = fopen("./out.in", "r");
-	// for (long i = 0; i < (long) SIZEX * (long) SIZEY; i++){
-		
-		
-	// }
-	
+	fout = fopen("./out.in", "w");
+	int bufferSize = MAXBUFFER;
+	char * buffer = (char *) malloc(sizeof(char) * bufferSize);
+	memset(buffer,0,bufferSize);
+	char min_buffer[255];
+	// change result matrix into string with form
+	for (long row = 0; row < (long) SIZEX; row++){
+		for (long col = 0; col < (long) SIZEY; col++){		
+			sprintf(min_buffer, "%ld", huge_matrixC[(row * SIZEX) + col]);
+			if (strlen(min_buffer) + strlen(buffer) >= bufferSize){
+				bufferSize += 512;
+				buffer = realloc(buffer, bufferSize);
+			}
+			strcat(buffer,min_buffer);
+			strcat(buffer, " ");
+			memset(min_buffer, 0, sizeof(min_buffer));
+
+		}
+		strcat(buffer, "\n");
+	}
+	// NULL termination
+	buffer[bufferSize] = '\0';
+	// write to file out.in
+	fwrite(buffer, sizeof(char), strlen(buffer), fout);
+	fclose(fout);
 }
 
 void printMatrixA(){
@@ -233,6 +253,10 @@ int main()
 	printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
 	flush_all_caches();
 	free_all();
+	fclose(fin1);
+	fclose(fin2);
+	fclose(fout);
+	fclose(ftest);
 
 	// return 0;
 	fin1 = fopen("./input1.in","r");
@@ -256,6 +280,8 @@ int main()
 	fclose(fin1);
 	fclose(fin2);
 	fclose(fout);
+	fclose(ftest);
+	write_results();
 	// free_all();
 	compare_results();
 	flush_all_caches();
