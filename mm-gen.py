@@ -3,9 +3,11 @@
 import numpy as np
 import os,sys
 import random
+import time
 
 size = sys.argv[1]
 
+start = time.time()
 f1 = open("input1.in","w")
 f2 = open("input2.in","w")
 f3 = open("reference.in","w")
@@ -35,6 +37,8 @@ for i in result:
     for j in i:
         f3.write(str(j) + " ")
     f3.write("\n")
+end = time.time()
+print("Elasped Time: " + str(end - start))
 
 f1.close()
 f2.close()

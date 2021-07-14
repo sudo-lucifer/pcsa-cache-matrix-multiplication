@@ -193,7 +193,7 @@ void load_matrix()
 	
 void multiply()
 {
-	long blockSize = 2;
+	long blockSize = 10;
 	// Your code here
 	for (long row = 0; row < (long) SIZEX; row += blockSize){
 		for(long col = 0; col < (long) SIZEY; col += blockSize){

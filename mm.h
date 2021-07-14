@@ -1,5 +1,5 @@
-#define SIZEX 10
-#define SIZEY 10
+#define SIZEX 3000
+#define SIZEY 3000
 /* for block matrix multiply
 recommend: 10
 */
