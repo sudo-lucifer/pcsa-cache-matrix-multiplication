@@ -89,7 +89,7 @@ void compare_results()
 		fscanf(fout, "%ld", &temp1);
 		if(temp1!=temp2)
 		{
-			printf("Wrong solution!");
+			printf("Wrong solution!\n");
 			exit(1);
 		}
 	}
@@ -104,29 +104,17 @@ void write_results()
 	// Basically, make sure the result is written on fout
 	// Each line represent value in the X-dimension of your matrix
 	fout = fopen("./out.in", "w");
-	int bufferSize = MAXBUFFER;
-	char * buffer = (char *) malloc(sizeof(char) * bufferSize);
-	memset(buffer,0,bufferSize);
-	char min_buffer[255];
-	// change result matrix into string with form
 	for (long row = 0; row < (long) SIZEX; row++){
-		for (long col = 0; col < (long) SIZEY; col++){		
-			sprintf(min_buffer, "%ld", huge_matrixC[(row * SIZEX) + col]);
-			if (strlen(min_buffer) + strlen(buffer) >= bufferSize){
-				bufferSize += 512;
-				buffer = realloc(buffer, bufferSize);
-			}
-			strcat(buffer,min_buffer);
+		for (long col = 0; col < (long) SIZEY; col++){	
+			char buffer[MAXBUFFER];
+			sprintf(buffer, "%ld", huge_matrixC[(row * SIZEX) + col]);
 			strcat(buffer, " ");
-			memset(min_buffer, 0, sizeof(min_buffer));
+			fwrite(buffer, sizeof(char), strlen(buffer), fout);
+			memset(buffer, 0, sizeof(buffer));
 
 		}
-		strcat(buffer, "\n");
+		fwrite("\n", sizeof(char), 1, fout);
 	}
-	// NULL termination
-	buffer[bufferSize] = '\0';
-	// write to file out.in
-	fwrite(buffer, sizeof(char), strlen(buffer), fout);
 	fclose(fout);
 }
 
@@ -205,7 +193,7 @@ void load_matrix()
 	
 void multiply()
 {
-	long blockSize = 100;
+	long blockSize = 2;
 	// Your code here
 	for (long row = 0; row < (long) SIZEX; row += blockSize){
 		for(long col = 0; col < (long) SIZEY; col += blockSize){
@@ -281,7 +269,9 @@ int main()
 	fclose(fin2);
 	fclose(fout);
 	fclose(ftest);
+	printf("============ Start writing the result into file ==========\n");
 	write_results();
+	printf("Done write\n");
 	// free_all();
 	compare_results();
 	flush_all_caches();
