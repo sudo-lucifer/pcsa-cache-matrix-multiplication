@@ -12,6 +12,7 @@
 // Task 1: Flush the cache so that we can do our measurement :)
 #define MAXBUFFER 512
 
+
 void flush_all_caches()
 {
 	// Your code goes here
@@ -193,7 +194,7 @@ void load_matrix()
 	
 void multiply()
 {
-	long blockSize = 10;
+	long blockSize = 500;
 	// Your code here
 	for (long row = 0; row < (long) SIZEX; row += blockSize){
 		for(long col = 0; col < (long) SIZEY; col += blockSize){
@@ -212,29 +213,61 @@ void multiply()
 	}
 }
 
-void multiply_2()
+
+// // 
+// void multiply_2()
+// {
+// 	long blockSize = 2;
+
+// 	for (long row = 0; row < (long) SIZEX; row += blockSize){
+// 		for(long col = 0; col < (long) SIZEY; col += blockSize){
+// 			for (long blockRow = 0; blockRow < (long) SIZEX; blockRow++){
+// 				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
+// 					long index = (blockRow * ((long) SIZEX)) + blockCol;
+// 					long sum = huge_matrixC[index];
+// 					for(long k = row; k < row + blockSize; k++){
+// 						long indexA = (blockRow * ((long) SIZEX)) + k;
+// 						long indexB = (blockCol * ((long) SIZEX)) + k;
+// 						// long indexB = (k * ((long) SIZEX)) + blockCol;
+// 						sum += huge_matrixA[indexA] * huge_matrixB[indexB];
+// 					}
+// 					huge_matrixC[(blockRow * ((long) SIZEX)) + blockCol] = sum;
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+
+// Tiling matrix multiplication
+void multiply_3()
 {
-	long blockSize = 100;
+	long blockSize = 500;
 
 	for (long row = 0; row < (long) SIZEX; row += blockSize){
 		for(long col = 0; col < (long) SIZEY; col += blockSize){
-			for (long blockRow = 0; blockRow < (long) SIZEX; blockRow++){
-				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
-					long index = (blockRow * ((long) SIZEX)) + blockCol;
-					long sum = huge_matrixC[index];
-					for(long k = row; k < row + blockSize; k++){
-						long indexA = (blockRow * ((long) SIZEX)) + k;
-						long indexB = (blockCol * ((long) SIZEX)) + k;
-						// long indexB = (k * ((long) SIZEX)) + blockCol;
-						sum += huge_matrixA[indexA] * huge_matrixB[indexB];
+			for (long block = 0; block < (long) SIZEX; block += blockSize){
+				// multiply small block
+				for (long blockRow = row; blockRow < row + blockSize; blockRow++){
+					for (long blockCol = col; blockCol < col + blockSize; blockCol++){
+						long index = (blockRow * ((long) SIZEX)) + blockCol;
+						long sum = huge_matrixC[index];
+						for (long k = block; k < block + blockSize; k++){
+							long indexA = (blockRow * ((long)SIZEX)) + k;
+							long indexB = (blockCol * ((long)SIZEX)) + k;
+							// long indexB = (k * ((long) SIZEX)) + blockCol;
+							// printf("indexA: %ld\n", indexA);
+							// printf("indexB: %ld\n", indexB);
+							sum += huge_matrixA[indexA] * huge_matrixB[indexB];
+
+						}
+						huge_matrixC[index] = sum;
+						// printf("index: %ld\n\n", index);
 					}
-					huge_matrixC[(blockRow * ((long) SIZEX)) + blockCol] = sum;
 				}
 			}
 		}
 	}
 }
-
 
 
 int main()
@@ -249,37 +282,36 @@ int main()
 	fin2 = fopen("./input2.in","r");
 	fout = fopen("./out.in","w");
 	ftest = fopen("./reference.in","r");
-	
 
 	// flush_all_caches();
-	// printf("============= Multiply 1 ==============\n");
+	printf("============= Multiply 1 ==============\n");
 
-	// s = clock();
-	// load_matrix();
-	// t = clock();
-	// total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	// printf("[Baseline] Total time taken during the load = %f seconds\n", total_in_base);
+	s = clock();
+	load_matrix();
+	t = clock();
+	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	printf("[Baseline] Total time taken during the load = %f seconds\n", total_in_base);
 
-	// s = clock();
-	// multiply();
-	// t = clock();
-	// total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	// printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
-	// flush_all_caches();
-	// free_all();
-	// fclose(fin1);
-	// fclose(fin2);
-	// fclose(fout);
-	// fclose(ftest);
+	s = clock();
+	multiply();
+	t = clock();
+	total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
+	flush_all_caches();
+	free_all();
+	fclose(fin1);
+	fclose(fin2);
+	fclose(fout);
+	fclose(ftest);
 
-	// // return 0;
-	// fin1 = fopen("./input1.in","r");
-	// fin2 = fopen("./input2.in","r");
-	// fout = fopen("./out.in","w");
-	// ftest = fopen("./reference.in","r");
+	// return 0;
+	fin1 = fopen("./input1.in","r");
+	fin2 = fopen("./input2.in","r");
+	fout = fopen("./out.in","w");
+	ftest = fopen("./reference.in","r");
 
 
-	printf("============= Multiply 2 ==============\n");
+	printf("============= Multiply 3 ==============\n");
 	s = clock();
 	load_matrix();
 	t = clock();
@@ -287,7 +319,7 @@ int main()
 	printf("Total time taken during the load = %f seconds\n", total_in_your);
 
 	clock_t s1 = clock();
-	multiply_2();
+	multiply_3();
 	clock_t t1 = clock();
 	total_mul_your += ((double)t1-(double)s1) / CLOCKS_PER_SEC;
 	printf("Total time taken during the multiply = %f seconds\n", total_mul_your);
