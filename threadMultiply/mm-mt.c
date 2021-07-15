@@ -9,17 +9,18 @@
 #define MAXBUFFER 512
 
 typedef struct cooridinate{
-	int rowStart;
-	int colStart;
-	int rowEnd;
-	int colEnd;
+	long rowStart;
+	long colStart;
+	long rowEnd;
+	long colEnd;
+	int package_label;
 } matrix_partitions_coor;
 
 matrix_partitions_coor jobList[10];
 int jobCount = 0;
 
+
 pthread_mutex_t mutexLock;
-pthread_cond_t conditionalVal;
 
 // optional = task 4
 void load_matrix()
@@ -104,12 +105,12 @@ void free_all()
 
 void multiply(long rowStart, long colStart, long rowEnd, long colEnd, long blockSize)
 {
-	printf("Start multiply\n");
+	// printf("Start multiply\nrowStart: %ld, rowEnd: %ld\ncolStart: %ld, colEnd: %ld\n\n", rowStart,rowEnd,colStart,colEnd);
 	// Your code here
-	for (long row = 0; row < (long) SIZEX; row += blockSize){
-		for(long col = 0; col < (long) SIZEY; col += blockSize){
-			for (long blockRow = row; blockRow < row + blockSize && blockRow < SIZEX; blockRow++){
-				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEY; blockCol++){
+	for (long row = rowStart; row < rowEnd; row += blockSize){
+		for(long col = colStart; col < (long) colEnd; col += blockSize){
+			for (long blockRow = row; blockRow < row + blockSize && blockRow < rowEnd; blockRow++){
+				for (long blockCol = col; blockCol < col + blockSize && blockCol < colEnd; blockCol++){
 					long sum = 0;
 					for (long k = 0; k < (long)SIZEY; k++)
 					{
@@ -121,97 +122,78 @@ void multiply(long rowStart, long colStart, long rowEnd, long colEnd, long block
 			}
 		}
 	}
-	printf("Thread Exit done multiply\n");
+	// printf("Thread Exit done multiply\n");
 }
 
+// void multiply_2(long rowStart, long colStart, long rowEnd, long colEnd, long blockSize)
+// {
+// 	for (long row = rowStart; row < rowEnd; row += blockSize){
+// 		for(long col = colStart; col < colEnd; col += blockSize){
+// 			for (long blockRow = 0; blockRow < rowEnd - rowStart; blockRow++){
+// 				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
+// 					long index = (blockRow * ((long) SIZEX)) + blockCol;
+// 					long sum = huge_matrixC[index];
+// 					for(long k = row; k < row + blockSize; k++){
+// 						long indexA = (blockRow * ((long) SIZEX)) + k;
+// 						long indexB = (blockCol * ((long) SIZEX)) + k;
+// 						// long indexB = (k * ((long) SIZEX)) + blockCol;
+// 						sum += huge_matrixA[indexA] * huge_matrixB[indexB];
+// 					}
+// 					huge_matrixC[(blockRow * ((long) SIZEX)) + blockCol] = sum;
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+
 void * pendingState(void * args){
-	pthread_detach(pthread_self());
-	while (jobCount == 0){
-		pthread_cond_wait(&conditionalVal, &mutexLock);
-	}
 	pthread_mutex_lock(&mutexLock);
 	matrix_partitions_coor package = jobList[0];
 	for (int i = 0; i < jobCount - 1; i++){
 		jobList[i] = jobList[i + 1];
-		
 	}
 	jobCount--;
 	pthread_mutex_unlock(&mutexLock);
-	multiply(package.rowStart, package.rowEnd, package.colStart, package.colEnd, 10);
+	multiply(package.rowStart, package.colStart, package.rowEnd, package.colEnd, 10);
 	return NULL;
 
 }
 
+void addJob(long rowStart, long rowEnd, long colStart, long colEnd){
+	matrix_partitions_coor package;
+	package.rowStart = rowStart;
+	package.rowEnd = rowEnd;
+	package.colStart = colStart;
+	package.colEnd = colEnd;
+	jobList[jobCount] = package;
+	jobCount++;
+	
+}
+
 
 void multiplyThreading(int ThreadNum){
-	pthread_cond_init(&conditionalVal, NULL);
+	// pthread_cond_init(&conditionalVal, NULL);
 	pthread_mutex_init(&mutexLock, NULL);
 	pthread_t threads[ThreadNum];
 
-	printf("============== Initialize Threads ==============\n");
+	long splitXaxis = ((long) SIZEX) / (((long) ThreadNum) / 2);
+	long splitYaxis = ((long) SIZEY) / (((long) ThreadNum) / 2);
+
+	addJob(0,splitXaxis,0,splitYaxis);
+	addJob(splitXaxis, SIZEX, splitYaxis, SIZEY);
+	addJob(splitXaxis, SIZEX, 0, splitYaxis);
+	addJob(0, splitXaxis, splitYaxis, SIZEY);
+
 	for (int i = 0; i < ThreadNum; i++){
 		if( pthread_create(&threads[i], NULL, &pendingState,NULL) ){
 			printf("Fail to initiaize thread\n");
 		}
-		// sleep(0.5);
 	}
-	long splitXaxis = ((long) SIZEX) / (((long) ThreadNum) / 2);
-	long splitYaxis = ((long) SIZEY) / (((long) ThreadNum) / 2);
 
-	printf("Adding job\n");
-	pthread_mutex_lock(&mutexLock);
-	matrix_partitions_coor job1;
-	job1.rowStart = 0;
-	job1.colStart = 0;
-	job1.rowEnd = splitXaxis;
-	job1.colEnd = splitYaxis;
-	jobList[0] = job1;
-	jobCount++;
-	pthread_mutex_unlock(&mutexLock);
-	pthread_cond_signal(&conditionalVal);
-
-	pthread_mutex_lock(&mutexLock);
-	matrix_partitions_coor job2;
-	job2.rowStart = splitXaxis;
-	job2.colStart = 0;
-	job2.rowEnd = SIZEX;
-	job2.colEnd = splitYaxis;
-	jobList[1] = job2;
-	jobCount++;
-	pthread_mutex_unlock(&mutexLock);
-	pthread_cond_signal(&conditionalVal);
-
-	pthread_mutex_lock(&mutexLock);
-	matrix_partitions_coor job3;
-	job3.rowStart = 0;
-	job3.colStart = splitYaxis;
-	job3.rowEnd = splitXaxis;
-	job3.colEnd = SIZEY;
-	jobList[2] = job3;
-	jobCount++;
-	pthread_mutex_unlock(&mutexLock);
-	pthread_cond_signal(&conditionalVal);
-	
-	pthread_mutex_lock(&mutexLock);
-	matrix_partitions_coor job4;
-	job4.rowStart = splitXaxis;
-	job4.colStart = splitYaxis;
-	job4.rowEnd = SIZEX;
-	job4.colEnd = SIZEY;
-	jobList[3] = job4;
-	jobCount++;
-	pthread_mutex_unlock(&mutexLock);
-	pthread_cond_signal(&conditionalVal);
-
-	printf("Done Add jobs\n");
-	printf("jobCOunt: %d\n", jobCount);
-	printf("===============================\n");
-
-	// for (int i = 0; i < ThreadNum; i++){
-	// 	pthread_join(threads[i], NULL);
-	// }
+	for (int i = 0; i < ThreadNum; i++){
+		pthread_join(threads[i], NULL);
+	}
 	pthread_mutex_destroy(&mutexLock);
-	pthread_cond_destroy(&conditionalVal);
 	
 }
 
@@ -246,6 +228,7 @@ int main(){
 	write_results();
 	printf("Done write\n");
 	compare_results();
+	// printMatrixC();
 	free_all();
 
 	
