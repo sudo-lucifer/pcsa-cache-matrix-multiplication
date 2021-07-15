@@ -1,4 +1,3 @@
-#define _OPEN_SYS_ITOA_EXT
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -170,6 +169,7 @@ void load_matrix()
 			fscanf(fin2, "%ld", (huge_matrixB + ((col * SIZEY) + row)));
 			// load matrix A normally
 			fscanf(fin1, "%ld", (huge_matrixA + ((row * SIZEY) + col)));
+			huge_matrixC[(row * SIZEY) + col] = 0;		
 		}
 	}
 }
@@ -212,6 +212,31 @@ void multiply()
 	}
 }
 
+void multiply_2()
+{
+	long blockSize = 100;
+
+	for (long row = 0; row < (long) SIZEX; row += blockSize){
+		for(long col = 0; col < (long) SIZEY; col += blockSize){
+			for (long blockRow = 0; blockRow < (long) SIZEX; blockRow++){
+				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
+					long index = (blockRow * ((long) SIZEX)) + blockCol;
+					long sum = huge_matrixC[index];
+					for(long k = row; k < row + blockSize; k++){
+						long indexA = (blockRow * ((long) SIZEX)) + k;
+						long indexB = (blockCol * ((long) SIZEX)) + k;
+						// long indexB = (k * ((long) SIZEX)) + blockCol;
+						sum += huge_matrixA[indexA] * huge_matrixB[indexB];
+					}
+					huge_matrixC[(blockRow * ((long) SIZEX)) + blockCol] = sum;
+				}
+			}
+		}
+	}
+}
+
+
+
 int main()
 {
 	
@@ -227,32 +252,34 @@ int main()
 	
 
 	// flush_all_caches();
+	// printf("============= Multiply 1 ==============\n");
 
-	s = clock();
-	load_matrix_base();
-	t = clock();
-	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("[Baseline] Total time taken during the load = %f seconds\n", total_in_base);
+	// s = clock();
+	// load_matrix();
+	// t = clock();
+	// total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	// printf("[Baseline] Total time taken during the load = %f seconds\n", total_in_base);
 
-	s = clock();
-	multiply_base();
-	t = clock();
-	total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
-	flush_all_caches();
-	free_all();
-	fclose(fin1);
-	fclose(fin2);
-	fclose(fout);
-	fclose(ftest);
+	// s = clock();
+	// multiply();
+	// t = clock();
+	// total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	// printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
+	// flush_all_caches();
+	// free_all();
+	// fclose(fin1);
+	// fclose(fin2);
+	// fclose(fout);
+	// fclose(ftest);
 
-	// return 0;
-	fin1 = fopen("./input1.in","r");
-	fin2 = fopen("./input2.in","r");
-	fout = fopen("./out.in","w");
-	ftest = fopen("./reference.in","r");
+	// // return 0;
+	// fin1 = fopen("./input1.in","r");
+	// fin2 = fopen("./input2.in","r");
+	// fout = fopen("./out.in","w");
+	// ftest = fopen("./reference.in","r");
 
 
+	printf("============= Multiply 2 ==============\n");
 	s = clock();
 	load_matrix();
 	t = clock();
@@ -260,7 +287,7 @@ int main()
 	printf("Total time taken during the load = %f seconds\n", total_in_your);
 
 	clock_t s1 = clock();
-	multiply();
+	multiply_2();
 	clock_t t1 = clock();
 	total_mul_your += ((double)t1-(double)s1) / CLOCKS_PER_SEC;
 	printf("Total time taken during the multiply = %f seconds\n", total_mul_your);
@@ -274,6 +301,7 @@ int main()
 	printf("Done write\n");
 	// free_all();
 	compare_results();
+	// printMatrixC();
 	flush_all_caches();
 	free_all();
 
