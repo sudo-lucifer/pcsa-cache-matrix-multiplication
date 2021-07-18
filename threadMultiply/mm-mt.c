@@ -1,12 +1,14 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
+#include<omp.h>
 #include<string.h>
 #include<time.h>
 
 #include"mm-mt.h"
 
 #define MAXBUFFER 512
+#define ThreadNum 4
 
 typedef struct cooridinate{
 	long rowStart;
@@ -16,11 +18,38 @@ typedef struct cooridinate{
 	int package_label;
 } matrix_partitions_coor;
 
+typedef struct sumUpCoordinate{
+	long blockRow;
+	long blockCol;
+}sumUpStruct;
+
 matrix_partitions_coor jobList[10];
 int jobCount = 0;
 
-
 pthread_mutex_t mutexLock;
+
+void flush_all_caches()
+{
+	// Your code goes here
+	for (long i = 0; i<((long)SIZEX*(long)SIZEY);i++){
+		asm volatile ("clflush (%0)\n\t"
+				:
+				: "r"(huge_matrixA + i)
+				: "memory");
+		asm volatile ("clflush (%0)\n\t"
+				:
+				: "r"(huge_matrixB + i)
+				: "memory");
+		asm volatile ("clflush (%0)\n\t"
+				:
+				: "r"(huge_matrixC + i)
+				: "memory");
+	}
+	asm volatile ("sfence\n\t"
+			:
+			:
+			: "memory");
+}
 
 // optional = task 4
 void load_matrix()
@@ -103,48 +132,32 @@ void free_all()
 	free(huge_matrixC);
 }
 
-void multiply(long rowStart, long colStart, long rowEnd, long colEnd, long blockSize)
+
+void multiply_2(long rowStart, long colStart, long rowEnd, long colEnd, long blockSize)
 {
-	// printf("Start multiply\nrowStart: %ld, rowEnd: %ld\ncolStart: %ld, colEnd: %ld\n\n", rowStart,rowEnd,colStart,colEnd);
-	// Your code here
+	long index = 0;
+	long sum = 0;
 	for (long row = rowStart; row < rowEnd; row += blockSize){
-		for(long col = colStart; col < (long) colEnd; col += blockSize){
-			for (long blockRow = row; blockRow < row + blockSize && blockRow < rowEnd; blockRow++){
-				for (long blockCol = col; blockCol < col + blockSize && blockCol < colEnd; blockCol++){
-					long sum = 0;
-					for (long k = 0; k < (long)SIZEY; k++)
-					{
-						// sum += (huge_matrixA[(blockRow * (long)SIZEY) + k] * huge_matrixB[(k * (long)SIZEY) + blockCol]);
-						sum += (huge_matrixA[(blockRow * (long)SIZEY) + k] * huge_matrixB[(blockCol * (long)SIZEY) + k]);
+		for(long col = colStart; col < colEnd; col += blockSize){
+			for (long block = 0; block < (long) SIZEX; block += blockSize){
+				// multiply small block
+				for (long blockRow = row; blockRow < row + blockSize && blockRow < SIZEX; blockRow++){
+					for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
+						index = (blockRow * ((long) SIZEX)) + blockCol;
+						sum = huge_matrixC[index];
+						for (long k = block; k < block + blockSize; k++){
+							sum += huge_matrixA[(blockRow * ((long)SIZEX)) + k] * huge_matrixB[(blockCol * ((long)SIZEX)) + k];
+
+						}
+						huge_matrixC[index] = sum;
 					}
-					huge_matrixC[(blockRow * (long)SIZEX) + blockCol] = sum;
 				}
 			}
 		}
 	}
-	// printf("Thread Exit done multiply\n");
 }
 
-// void multiply_2(long rowStart, long colStart, long rowEnd, long colEnd, long blockSize)
-// {
-// 	for (long row = rowStart; row < rowEnd; row += blockSize){
-// 		for(long col = colStart; col < colEnd; col += blockSize){
-// 			for (long blockRow = 0; blockRow < rowEnd - rowStart; blockRow++){
-// 				for (long blockCol = col; blockCol < col + blockSize && blockCol < SIZEX; blockCol++){
-// 					long index = (blockRow * ((long) SIZEX)) + blockCol;
-// 					long sum = huge_matrixC[index];
-// 					for(long k = row; k < row + blockSize; k++){
-// 						long indexA = (blockRow * ((long) SIZEX)) + k;
-// 						long indexB = (blockCol * ((long) SIZEX)) + k;
-// 						// long indexB = (k * ((long) SIZEX)) + blockCol;
-// 						sum += huge_matrixA[indexA] * huge_matrixB[indexB];
-// 					}
-// 					huge_matrixC[(blockRow * ((long) SIZEX)) + blockCol] = sum;
-// 				}
-// 			}
-// 		}
-// 	}
-// }
+
 
 void * pendingState(void * args){
 	pthread_mutex_lock(&mutexLock);
@@ -154,7 +167,7 @@ void * pendingState(void * args){
 	}
 	jobCount--;
 	pthread_mutex_unlock(&mutexLock);
-	multiply(package.rowStart, package.colStart, package.rowEnd, package.colEnd, 10);
+	multiply_2(package.rowStart, package.colStart, package.rowEnd, package.colEnd, 10);
 	return NULL;
 
 }
@@ -167,15 +180,9 @@ void addJob(long rowStart, long rowEnd, long colStart, long colEnd){
 	package.colEnd = colEnd;
 	jobList[jobCount] = package;
 	jobCount++;
-	
 }
 
-
-void multiplyThreading(int ThreadNum){
-	// pthread_cond_init(&conditionalVal, NULL);
-	pthread_mutex_init(&mutexLock, NULL);
-	pthread_t threads[ThreadNum];
-
+void initPackage(){
 	long splitXaxis = ((long) SIZEX) / (((long) ThreadNum) / 2);
 	long splitYaxis = ((long) SIZEY) / (((long) ThreadNum) / 2);
 
@@ -183,6 +190,12 @@ void multiplyThreading(int ThreadNum){
 	addJob(splitXaxis, SIZEX, splitYaxis, SIZEY);
 	addJob(splitXaxis, SIZEX, 0, splitYaxis);
 	addJob(0, splitXaxis, splitYaxis, SIZEY);
+}
+
+
+void multiplyThreading(){
+	pthread_mutex_init(&mutexLock, NULL);
+	pthread_t threads[ThreadNum];
 
 	for (int i = 0; i < ThreadNum; i++){
 		if( pthread_create(&threads[i], NULL, &pendingState,NULL) ){
@@ -193,16 +206,14 @@ void multiplyThreading(int ThreadNum){
 	for (int i = 0; i < ThreadNum; i++){
 		pthread_join(threads[i], NULL);
 	}
+
 	pthread_mutex_destroy(&mutexLock);
-	
+
 }
 
 int main(){
 	clock_t s,t;
 	double total_in_base = 0.0;
-	double total_in_your = 0.0;
-	double total_mul_base = 0.0;
-	double total_mul_your = 0.0;
 	fin1 = fopen("./input1.in","r");
 	fin2 = fopen("./input2.in","r");
 	fout = fopen("./out.in","w");
@@ -214,11 +225,13 @@ int main(){
 	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
 	printf("Total time taken during the load = %f seconds\n", total_in_base);
 
-	s = clock();
-	multiplyThreading(4);
-	t = clock();
-	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("Total time taken multithread multiply = %f seconds\n", total_in_base);
+	initPackage();
+
+	clock_t s1 = clock();
+	// multiply_2(0,0,SIZEX/2,SIZEY/2,2);
+	multiplyThreading();
+	clock_t t1 = clock();
+	printf("Total time taken multithread multiply = %f seconds\n", ((double)t1-(double)s1) / CLOCKS_PER_SEC);
 
 	fclose(fin1);
 	fclose(fin2);
@@ -229,6 +242,7 @@ int main(){
 	printf("Done write\n");
 	compare_results();
 	// printMatrixC();
+	flush_all_caches();
 	free_all();
 
 	
