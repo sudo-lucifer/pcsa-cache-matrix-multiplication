@@ -282,20 +282,18 @@ int main()
 	fout = fopen("./out.in","w");
 	ftest = fopen("./reference.in","r");
 
-	// // flush_all_caches();
-	printf("============= Multiply 1 ==============\n");
-
+	printf("============= Base Matrix Mulitplication ===========\n");
 	s = clock();
 	load_matrix();
 	t = clock();
 	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("[Baseline] Total time taken during the load = %f seconds\n", total_in_base);
+	printf("Total time taken during the load = %f seconds\n", total_in_base);
 
 	s = clock();
-	multiply();
+	multiply_base();
 	t = clock();
 	total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("[Baseline] Total time taken during the multiply = %f seconds\n", total_mul_base);
+	printf("Total time taken during the multiply = %f seconds\n\n", total_mul_base);
 	flush_all_caches();
 	free_all();
 	fclose(fin1);
@@ -303,20 +301,42 @@ int main()
 	fclose(fout);
 	fclose(ftest);
 
-	return 0;
+	// // flush_all_caches();
+	printf("============= Multiply 1 (line Multiplication)==============\n");
+	fin1 = fopen("./input1.in","r");
+	fin2 = fopen("./input2.in","r");
+	fout = fopen("./out.in","w");
+	ftest = fopen("./reference.in","r");
 
-	// printf("passed\n");
-	// printMatrixA();
-	// return 0;
+	s = clock();
+	load_matrix();
+	t = clock();
+	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	printf("Total time taken during the load = %f seconds\n", total_in_base);
 
-	// return 0;
+	s = clock();
+	multiply();
+	t = clock();
+	total_mul_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
+	printf("Total time taken during the multiply = %f seconds\n\n", total_mul_base);
+	flush_all_caches();
+	free_all();
+	fclose(fin1);
+	fclose(fin2);
+	fclose(fout);
+	fclose(ftest);
+
 	fin1 = fopen("./input1.in","r");
 	fin2 = fopen("./input2.in","r");
 	fout = fopen("./out.in","w");
 	ftest = fopen("./reference.in","r");
 
 
-	printf("============= Multiply 3 ==============\n");
+	printf("============= Multiply 3 (Tiling Matrix Multiply)==============\n");
+	fin1 = fopen("./input1.in","r");
+	fin2 = fopen("./input2.in","r");
+	fout = fopen("./out.in","w");
+	ftest = fopen("./reference.in","r");
 	s = clock();
 	load_matrix();
 	t = clock();
@@ -327,17 +347,17 @@ int main()
 	multiply_3();
 	clock_t t1 = clock();
 	total_mul_your += ((double)t1-(double)s1) / CLOCKS_PER_SEC;
-	printf("Total time taken during the multiply = %f seconds\n", total_mul_your);
+	printf("Total time taken during the multiply = %f seconds\n\n", total_mul_your);
 	// write_results();
 	fclose(fin1);
 	fclose(fin2);
 	fclose(fout);
 	fclose(ftest);
 	// printf("============ Start writing the result into file ==========\n");
-	// write_results();
+	write_results();
 	// printf("Done write\n");
 	// free_all();
-	// compare_results();
+	compare_results();
 	// printMatrixC();
 	flush_all_caches();
 	free_all();

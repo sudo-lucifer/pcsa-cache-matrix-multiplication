@@ -2,7 +2,7 @@
 # Makefile that builds btest and other helper programs for the CS:APP data lab
 # 
 CC = gcc
-CFLAGS = -pthread -O3 -march=native -ffast-math -fopenmp -Wall -m64
+CFLAGS = -pthread -O3 -march=native -ffast-math -Wall -m64
 
 all: mm
 
