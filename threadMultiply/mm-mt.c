@@ -23,10 +23,16 @@ typedef struct sumUpCoordinate{
 	long blockCol;
 }sumUpStruct;
 
+typedef struct loadWork{
+	int isTransposed;
+}loadStruct;
+loadStruct loadJob[2];
+
 matrix_partitions_coor jobList[10];
 int jobCount = 0;
 
 pthread_mutex_t mutexLock;
+pthread_mutex_t loadLock;
 
 void flush_all_caches()
 {
@@ -51,7 +57,6 @@ void flush_all_caches()
 			: "memory");
 }
 
-// optional = task 4
 void load_matrix()
 {
 	// Your code here
@@ -70,6 +75,56 @@ void load_matrix()
 		}
 	}
 }
+
+// ========================== parallel load =================
+void * load_file(void * args){
+	pthread_mutex_lock(&loadLock);
+	loadStruct package = loadJob[0];
+	loadJob[0] = loadJob[1];
+	pthread_mutex_unlock(&loadLock);
+	int indexingMethod = package.isTransposed;
+	
+	for (long row = 0; row < (long) SIZEX; row++){
+		for(long col = 0; col < (long) SIZEY; col++){
+			if (!indexingMethod){
+				fscanf(fin1, "%ld", (huge_matrixA + ((row * SIZEY) + col)));
+			}
+			else{
+				fscanf(fin2, "%ld", (huge_matrixB + ((col * SIZEY) + row)));
+				
+			}
+		}
+	}
+}
+
+void load_parallel(){
+	pthread_mutex_init(&loadLock, NULL);
+	huge_matrixA = malloc(sizeof(long)*(long)SIZEX*(long)SIZEY);
+	huge_matrixB = malloc(sizeof(long)*(long)SIZEX*(long)SIZEY);
+	huge_matrixC = malloc(sizeof(long)*(long)SIZEX*(long)SIZEY);
+
+	pthread_t thread[2];
+
+	loadStruct job1;
+	job1.isTransposed = 0;
+	loadJob[0] = job1;
+
+	loadStruct job2;
+	job1.isTransposed = 1;
+	loadJob[1] = job1;
+
+	for (int i = 0; i < 2; i++){
+		if(pthread_create(&thread[i], NULL, &load_file, NULL)){
+			printf("Fail to create thread\n");
+		}
+	}
+
+	for (int i = 0; i < 2; i++){
+		pthread_join(thread[i],NULL);
+	}
+	pthread_mutex_destroy(&loadLock);
+}
+
 
 void printMatrixC(){
 	for (long i = 0; i < (long)SIZEX * (long)SIZEY; i++)
@@ -220,10 +275,10 @@ int main(){
 	ftest = fopen("./reference.in","r");
 
 	s = clock();
-	load_matrix();
+	load_parallel();
 	t = clock();
 	total_in_base += ((double)t-(double)s) / CLOCKS_PER_SEC;
-	printf("Total time taken during the load = %f seconds\n", total_in_base);
+	printf("Total time taken during the load in parallel = %f seconds\n", total_in_base);
 
 	initPackage();
 
